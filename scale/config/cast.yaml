@@ -1,0 +1,57 @@
+# SCALE standing cast. One narrator per episode by default; a beat may set
+# `narrator:` to hand off for special episodes.
+#
+# Paste your ElevenLabs voice IDs over REPLACE_ME. `say` is the macOS
+# built-in fallback used for free scratch tracks (`--tts say`).
+# pace_wpm drives timing estimates for `--tts silent` (animatics).
+# pre / gap are this narrator's breathing room: seconds before and after a line.
+
+narrators:
+  awe:
+    name: The Awe Voice
+    role: anchor
+    tone: slow, warm, full of wonder
+    use_for: [flagship, cosmic, reflective, endings]
+    pace_wpm: 125
+    pre: 0.30
+    gap: 0.55
+    elevenlabs: {voice_id: REPLACE_ME, stability: 0.55, similarity_boost: 0.80, style: 0.30, speed: 0.90}
+    say: {voice: Daniel, rate: 150}
+
+  guide:
+    name: The Guide
+    role: workhorse
+    tone: clear, curious, explanatory
+    use_for: [explainer, biology, engineering, numbers]
+    pace_wpm: 150
+    pre: 0.25
+    gap: 0.45
+    elevenlabs: {voice_id: REPLACE_ME, stability: 0.50, similarity_boost: 0.80, style: 0.15, speed: 1.00}
+    say: {voice: Samantha, rate: 175}
+
+  pulse:
+    name: The Pulse
+    role: momentum
+    tone: sharp, urgent, driving
+    use_for: [fast, danger, extreme, countdown]
+    pace_wpm: 175
+    pre: 0.15
+    gap: 0.30
+    elevenlabs: {voice_id: REPLACE_ME, stability: 0.40, similarity_boost: 0.80, style: 0.45, speed: 1.08}
+    say: {voice: Alex, rate: 200}
+
+  whisper:
+    name: The Whisper
+    role: rare
+    tone: intimate, hushed, close
+    use_for: [inside-the-body, quantum, special]
+    pace_wpm: 105
+    pre: 0.45
+    gap: 0.90
+    elevenlabs: {voice_id: REPLACE_ME, stability: 0.65, similarity_boost: 0.75, style: 0.20, speed: 0.85}
+    say: {voice: Karen, rate: 135}
+
+rotation:
+  max_consecutive: 2        # warn if one voice runs more than this many episodes in a row
+  whisper_max_share: 0.10   # The Whisper stays rare: warn above 10% of episodes
+  window: 10                # rotation suggestions look at the last N episodes

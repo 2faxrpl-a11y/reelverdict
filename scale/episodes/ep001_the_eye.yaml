@@ -1,0 +1,239 @@
+# SCALE — Episode 001: The Eye
+# Zoom OUT: a single human eye -> cosmic web -> edge of the observable universe
+# -> snap back to the same eye. Closing beat: the universe looking back at itself.
+
+id: ep001
+slug: the-eye
+title: "Your Eye, Zoomed Out to the Edge of Everything"
+direction: out
+narrator: awe
+
+# Visual language shared by every layer prompt (used by `scale prompts`).
+style: >
+  photoreal cinematic still, top-down camera looking straight down, deep blacks,
+  soft volumetric light, teal-and-amber grade, 9:16 vertical, ultra detailed,
+  no text, no watermark
+
+camera:
+  start_offset: -0.30   # open slightly inside the eye so frame one is already moving
+  end_offset: -0.12     # final line drifts gently back into the eye
+
+# Layers run innermost -> outermost, whatever the episode direction.
+# meters    = real-world width of the frame
+# inner_at  = where the previous (smaller) layer sits in this image, 0..1 (default center)
+# kind      = procedural previz generator used until a real image exists in
+#             assets/ep001/<id>.png (or `asset:` points into assets/library/)
+layers:
+  - id: eye
+    meters: 0.05
+    label: A human eye
+    kind: eye
+    prompt: >
+      extreme macro of a single human eye looking straight up into the lens, iris filling
+      the center, wet catchlight, eyelashes, skin pores at the edges
+
+  - id: face
+    meters: 0.32
+    label: A face
+    kind: face
+    inner_at: [0.40, 0.42]
+    prompt: >
+      a person lying on their back on a wooden floor at night, looking straight up into
+      the lens, calm expression, face lit by a warm lamp, their left eye exactly at the anchor point
+
+  - id: room
+    meters: 4.0
+    label: A room
+    kind: room
+    inner_at: [0.50, 0.40]
+    prompt: >
+      overhead view of a small dim bedroom, a person lying on the floor in the center looking
+      up, warm lamp glow, rug, scattered books, cutaway with no ceiling
+
+  - id: rooftop
+    meters: 36
+    label: A rooftop
+    kind: rooftop
+    prompt: >
+      overhead night view of a flat apartment rooftop, a single glowing skylight at the exact
+      center revealing a warm room below, HVAC units, puddles reflecting city glow
+
+  - id: block
+    meters: 320
+    label: A city block
+    kind: night_city
+    params: {density: 0.55, blocks: 4, glow: 1.0}
+    prompt: >
+      satellite-style overhead night view of a dense city block, streetlights, car light
+      trails, the rooftop with one lit skylight at the exact center
+
+  - id: city
+    meters: 3000
+    label: A city
+    kind: night_city
+    params: {density: 0.75, blocks: 34, glow: 1.2}
+    prompt: >
+      overhead night view of a city grid, sodium streetlights, glowing avenues, a river,
+      the exact center a dense lit block
+
+  - id: metro
+    meters: 30000
+    label: A metropolis
+    kind: night_city
+    params: {density: 0.9, glow: 1.4, falloff: 0.55}
+    prompt: >
+      night satellite photo of a sprawling metropolis, golden lights fading into dark
+      countryside, highways radiating from the bright center
+
+  - id: region
+    meters: 400000
+    label: A coastline
+    kind: night_city
+    params: {density: 0.35, glow: 1.6, falloff: 0.25, coast: true}
+    prompt: >
+      night satellite photo of a coastline, clusters of city lights, black ocean, the
+      brightest city exactly at the center
+
+  - id: continent
+    meters: 4000000
+    label: A continent
+    kind: globe
+    params: {night: true}
+    prompt: >
+      orbital night photo over a continent, city lights like embers, thin blue atmosphere
+      at the curved horizon, the bright coastal city at the center
+
+  - id: earth
+    meters: 26000000
+    label: Earth
+    kind: globe
+    params: {night: true}
+    prompt: >
+      the whole Earth floating in black space, half in night with glowing city lights,
+      sunrise terminator, thin atmosphere halo, the lit city exactly at the center of the disk
+
+  - id: earth_moon
+    meters: 1.0e9
+    label: Earth and Moon
+    kind: earth_moon
+    prompt: >
+      deep space view of a tiny blue Earth at the center and the small grey Moon nearby,
+      faint stars, vast black
+
+  - id: inner_solar
+    meters: 6.0e11
+    label: The inner planets
+    kind: solar
+    params: {orbits: [0.39, 0.72, 1.0, 1.52], sun_px: 0.012}
+    inner_at: [0.749, 0.50]
+    prompt: >
+      the inner solar system from above, the Sun blazing at the center, thin orbit lines,
+      Earth a pale blue point on the right, black space
+
+  - id: outer_solar
+    meters: 1.2e13
+    label: The Solar System
+    kind: solar
+    params: {orbits: [5.2, 9.5, 19.2, 30.1], sun_px: 0.004}
+    prompt: >
+      the whole solar system from above, the Sun a bright point at the center, faint
+      elliptical orbits of the giant planets, black space
+
+  - id: stars
+    meters: 6.0e17
+    label: Our stellar neighborhood
+    kind: stars
+    prompt: >
+      dense starfield of nearby stars, varied colors, the Sun a modest yellow point at the
+      exact center, deep black
+
+  - id: galaxy
+    meters: 1.6e21
+    label: The Milky Way
+    kind: galaxy
+    inner_at: [0.657, 0.50]
+    prompt: >
+      face-on spiral galaxy like the Milky Way, glowing golden core, blue spiral arms, dust
+      lanes, seen from far above, black space
+
+  - id: local_group
+    meters: 3.0e22
+    label: The Local Group
+    kind: local_group
+    inner_at: [0.42, 0.56]
+    prompt: >
+      a handful of galaxies in deep space, a large spiral and its neighbor Andromeda, small
+      dwarf galaxies, faint haze
+
+  - id: cosmic_web
+    meters: 1.2e25
+    label: The cosmic web
+    kind: cosmic_web
+    prompt: >
+      the cosmic web, glowing filaments of galaxies connecting bright clusters around dark
+      voids, violet and gold, the center a bright node
+
+  - id: observable
+    meters: 9.0e26
+    label: The observable universe
+    kind: observable
+    prompt: >
+      the entire observable universe as a glowing sphere of filaments fading to a warm
+      microwave glow at its edge, perfect black beyond
+
+# Beats: narration lines in order. `layer` is where the camera lands as the line
+# is spoken (arrive = fraction through the line, default 0.5). `move: snap` makes a
+# fast whip with motion blur instead of the smooth continuous zoom.
+beats:
+  - id: open
+    layer: eye
+    offset: -0.05
+    text: "This is an eye. Maybe yours."
+
+  - id: face
+    layer: face
+    text: "Twenty-four millimeters of living glass, set in a face. One of eight billion."
+
+  - id: room
+    layer: room
+    text: "A room. A light left on."
+
+  - id: city
+    layer: city
+    arrive: 0.65
+    text: "A city, breathing in the dark. Millions of eyes, looking at something else."
+
+  - id: earth
+    layer: earth
+    text: "Every person who has ever lived, lived here."
+
+  - id: solar
+    layer: outer_solar
+    text: "One star holds it all on a string."
+
+  - id: galaxy
+    layer: galaxy
+    text: "Hundreds of billions of suns. Ours isn't even in the middle."
+
+  - id: web
+    layer: cosmic_web
+    text: "And the galaxies themselves hang like dew on a web,"
+
+  - id: edge
+    layer: observable
+    arrive: 0.8
+    hold: 1.1
+    text: "ninety-three billion light-years of everything we will ever see."
+
+  - id: snap
+    layer: eye
+    move: snap
+    snap: 1.25
+    offset: 0.0
+    text: "And somewhere inside all of it,"
+
+  - id: close
+    layer: eye
+    offset: -0.12
+    hold: 1.6
+    text: "the universe grew an eye. And turned it around, to look at itself."

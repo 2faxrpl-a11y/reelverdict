@@ -1,0 +1,70 @@
+# SCALE — series-wide settings. Every episode inherits these; an episode can
+# override any key under `output`, `look`, `hud`, `captions` or `audio`.
+
+series:
+  name: SCALE
+  tagline: "One zoom. Everything."
+  default_tags: [scale, powersoften, universe, space, science, shorts]
+
+output:
+  width: 1080
+  height: 1920
+  fps: 30
+  preview_scale: 0.5        # --preview renders at 540x960
+  preview_fps: 24
+  codec: auto               # auto = h264_videotoolbox on macOS, else libx264
+  crf: 19                   # libx264 quality (preview uses 26)
+  vt_bitrate: 18M           # videotoolbox bitrate
+  workers: auto             # parallel frame workers (auto = min(4, cpu count))
+
+look:
+  feather: 0.14             # soft edge of each inner layer, fraction of its width
+  vignette: 0.38
+  grain: 0.022
+  motion_blur_max_samples: 8
+  seam_match: true          # blend each inner image's edges into the image around it
+  magnify_fade: [6, 20]     # base layer fades to background between these blow-up factors
+  background: [0, 0, 0]
+
+hud:
+  enabled: true
+  y: 0.075                  # fraction of frame height
+  size: 0.050               # main readout, fraction of frame width
+  label_fade: 0.35          # layer label shows within this z-distance of a layer
+
+captions:
+  enabled: true
+  max_words: 4
+  max_chars: 22
+  y: 0.75
+  size: 0.064
+
+audio:
+  sample_rate: 48000
+  target_lufs: -14
+  true_peak: -1.5
+  bed_gain_db: -19          # procedural drone / music bed
+  air_gain_db: -24          # motion-reactive noise layer
+  sfx_gain_db: -9           # whooshes / impacts
+  duck_db: -7               # how far the bed dips under narration
+
+fonts:
+  # First file that exists wins. macOS paths first, then common Linux paths.
+  caption:
+    - /System/Library/Fonts/Supplemental/Futura.ttc
+    - /System/Library/Fonts/HelveticaNeue.ttc
+    - /System/Library/Fonts/Helvetica.ttc
+    - /usr/share/fonts/opentype/inter/Inter-SemiBold.otf
+    - /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+  hud:
+    - /System/Library/Fonts/SFNSMono.ttf
+    - /System/Library/Fonts/Menlo.ttc
+    - /usr/share/fonts/opentype/inter/Inter-Light.otf
+    - /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+
+tts:
+  default_provider: elevenlabs   # elevenlabs | say | silent
+  elevenlabs:
+    api_key_env: ELEVENLABS_API_KEY
+    model_id: eleven_multilingual_v2
+    output_format: mp3_44100_192
