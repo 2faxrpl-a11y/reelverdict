@@ -991,3 +991,7 @@ GENERATORS = {
     "solar": gen_solar, "stars": gen_stars, "galaxy": gen_galaxy,
     "local_group": gen_local_group, "cosmic_web": gen_cosmic_web, "observable": gen_observable,
 }
+
+from .face import gen_face as _realistic_face  # noqa: E402  (face.py builds on the helpers above)
+
+GENERATORS["face"] = _realistic_face
