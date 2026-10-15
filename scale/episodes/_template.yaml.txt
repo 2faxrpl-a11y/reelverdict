@@ -1,0 +1,42 @@
+# SCALE — {id}: {slug}
+# Fill in layers (innermost -> outermost) and beats, then:
+#   python -m scale_engine lint {id}
+#   python -m scale_engine stills {id}
+#   python -m scale_engine build {id} --preview --tts say
+
+id: {id}
+slug: {slug}
+title: "TITLE"
+direction: {direction}
+narrator: {narrator}
+style: >
+  photoreal cinematic still, deep blacks, soft volumetric light, 9:16 vertical,
+  ultra detailed, no text, no watermark
+
+camera:
+  start_offset: 0.0
+  end_offset: 0.0
+
+layers:
+  - id: small
+    meters: 1.0e-6
+    label: The smallest thing
+    kind: stars
+    prompt: >
+      describe the innermost image
+  - id: big
+    meters: 1.0e-5
+    label: The next scale up
+    kind: stars
+    prompt: >
+      describe the next image; the previous layer sits at its center
+
+beats:
+  # zoom IN episodes simply list beats from the biggest layer to the smallest
+  - id: open
+    layer: small
+    text: "First line."
+  - id: close
+    layer: big
+    hold: 1.5
+    text: "Last line."
