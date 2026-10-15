@@ -87,9 +87,47 @@ def _elevenlabs(text: str, narrator: dict, dst: Path, sr: int, cfg: dict) -> Non
     mp3.unlink(missing_ok=True)
 
 
+KOKORO_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+_KOKORO = {}
+
+
+def _kokoro_model(cfg: dict):
+    """Load (downloading once, ~120 MB) the open Kokoro voice model. Runs offline after that."""
+    if "model" in _KOKORO:
+        return _KOKORO["model"]
+    try:
+        from kokoro_onnx import Kokoro
+    except ImportError as e:
+        raise RuntimeError("pip install kokoro-onnx soundfile  (free offline voices)") from e
+    d = Path(os.path.expanduser(cfg.get("model_dir", "~/.scale/kokoro")))
+    d.mkdir(parents=True, exist_ok=True)
+    files = {"model": cfg.get("model_file", "kokoro-v1.0.int8.onnx"), "voices": "voices-v1.0.bin"}
+    for f in files.values():
+        if not (d / f).exists():
+            print(f"  downloading voice model {f} ...", flush=True)
+            tmp = d / (f + ".part")
+            with urllib.request.urlopen(KOKORO_URL + f, timeout=600) as r, open(tmp, "wb") as out:
+                shutil.copyfileobj(r, out)
+            tmp.replace(d / f)
+    _KOKORO["model"] = Kokoro(str(d / files["model"]), str(d / files["voices"]))
+    return _KOKORO["model"]
+
+
+def _kokoro(text: str, narrator: dict, dst: Path, sr: int, cfg: dict) -> None:
+    import soundfile as sf
+    k = narrator.get("kokoro", {})
+    voice = k.get("voice", "bm_george")
+    lang = k.get("lang") or ("en-gb" if voice.startswith("b") else "en-us")
+    audio, rate = _kokoro_model(cfg).create(text, voice=voice, speed=float(k.get("speed", 1.0)), lang=lang)
+    raw = dst.with_suffix(".raw.wav")
+    sf.write(str(raw), audio, rate)
+    _to_wav(raw, dst, sr)
+    raw.unlink(missing_ok=True)
+
+
 def synth(text: str, narrator: dict, provider: str, series_cfg: dict) -> Path:
     sr = series_cfg["audio"]["sample_rate"]
-    settings = {"silent": narrator.get("pace_wpm"), "say": narrator.get("say"),
+    settings = {"silent": narrator.get("pace_wpm"), "say": narrator.get("say"), "kokoro": narrator.get("kokoro"),
                 "elevenlabs": [narrator.get("elevenlabs"), series_cfg["tts"]["elevenlabs"].get("model_id")]}
     key = json.dumps([provider, narrator["id"], settings.get(provider), text, sr], sort_keys=True)
     h = hashlib.sha1(key.encode()).hexdigest()[:16]
@@ -104,6 +142,8 @@ def synth(text: str, narrator: dict, provider: str, series_cfg: dict) -> Path:
         _say(text, narrator, tmp, sr)
     elif provider == "elevenlabs":
         _elevenlabs(text, narrator, tmp, sr, series_cfg["tts"]["elevenlabs"])
+    elif provider == "kokoro":
+        _kokoro(text, narrator, tmp, sr, series_cfg["tts"].get("kokoro", {}))
     else:
         raise ValueError(f"unknown tts provider '{provider}'")
     tmp.replace(dst)

@@ -86,7 +86,10 @@ fonts:
     - /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
 
 tts:
-  default_provider: elevenlabs   # elevenlabs | say | silent
+  default_provider: kokoro       # kokoro (free, offline neural) | elevenlabs (premium) | say (macOS) | silent
+  kokoro:
+    model_dir: ~/.scale/kokoro   # downloaded once (~120 MB) from GitHub, then fully offline
+    model_file: kokoro-v1.0.int8.onnx
   elevenlabs:
     api_key_env: ELEVENLABS_API_KEY
     model_id: eleven_multilingual_v2

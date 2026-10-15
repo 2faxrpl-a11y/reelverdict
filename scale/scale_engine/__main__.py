@@ -39,19 +39,19 @@ def main(argv=None):
     b = sub.add_parser("build")
     b.add_argument("episode")
     b.add_argument("--preview", action="store_true", help="half-res, 24fps, fast encode")
-    b.add_argument("--tts", choices=["elevenlabs", "say", "silent"])
+    b.add_argument("--tts", choices=["kokoro", "elevenlabs", "say", "silent"])
     b.add_argument("--workers", type=int)
     b.add_argument("--publish", action="store_true", help="upload to the SCALE channel when the render finishes")
     b.add_argument("--allow-previz", action="store_true", help="with --publish: allow layers still on previz art")
 
     ba = sub.add_parser("batch")
     ba.add_argument("--preview", action="store_true")
-    ba.add_argument("--tts", choices=["elevenlabs", "say", "silent"])
+    ba.add_argument("--tts", choices=["kokoro", "elevenlabs", "say", "silent"])
 
     s = sub.add_parser("stills")
     s.add_argument("episode")
     s.add_argument("--at", type=float, nargs="*")
-    s.add_argument("--tts", default="silent", choices=["elevenlabs", "say", "silent"])
+    s.add_argument("--tts", default="silent", choices=["kokoro", "elevenlabs", "say", "silent"])
 
     pv = sub.add_parser("previz")
     pv.add_argument("episode")

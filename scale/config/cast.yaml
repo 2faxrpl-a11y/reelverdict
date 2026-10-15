@@ -1,7 +1,8 @@
 # SCALE standing cast. One narrator per episode by default; a beat may set
 # `narrator:` to hand off for special episodes.
 #
-# Paste your ElevenLabs voice IDs over REPLACE_ME. `say` is the macOS
+# kokoro = free offline neural voice (the default). Paste ElevenLabs voice IDs over
+# REPLACE_ME to upgrade with --tts elevenlabs. `say` is the macOS
 # built-in fallback used for free scratch tracks (`--tts say`).
 # pace_wpm drives timing estimates for `--tts silent` (animatics).
 # pre / gap are this narrator's breathing room: seconds before and after a line.
@@ -16,6 +17,7 @@ narrators:
     pre: 0.30
     gap: 0.55
     elevenlabs: {voice_id: REPLACE_ME, stability: 0.55, similarity_boost: 0.80, style: 0.30, speed: 0.90}
+    kokoro: {voice: bm_george, speed: 0.86}
     say: {voice: Daniel, rate: 150}
 
   guide:
@@ -27,6 +29,7 @@ narrators:
     pre: 0.25
     gap: 0.45
     elevenlabs: {voice_id: REPLACE_ME, stability: 0.50, similarity_boost: 0.80, style: 0.15, speed: 1.00}
+    kokoro: {voice: am_michael, speed: 1.0}
     say: {voice: Samantha, rate: 175}
 
   pulse:
@@ -38,6 +41,7 @@ narrators:
     pre: 0.15
     gap: 0.30
     elevenlabs: {voice_id: REPLACE_ME, stability: 0.40, similarity_boost: 0.80, style: 0.45, speed: 1.08}
+    kokoro: {voice: am_fenrir, speed: 1.1}
     say: {voice: Alex, rate: 200}
 
   whisper:
@@ -49,6 +53,7 @@ narrators:
     pre: 0.45
     gap: 0.90
     elevenlabs: {voice_id: REPLACE_ME, stability: 0.65, similarity_boost: 0.75, style: 0.20, speed: 0.85}
+    kokoro: {voice: af_nicole, speed: 0.85}
     say: {voice: Karen, rate: 135}
 
 rotation:

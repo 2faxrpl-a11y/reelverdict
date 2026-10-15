@@ -5,3 +5,5 @@ fonttools>=4.50
 google-api-python-client>=2.100
 google-auth-oauthlib>=1.2
 google-auth-httplib2>=0.2
+kokoro-onnx>=0.4
+soundfile>=0.12
