@@ -729,26 +729,26 @@ def gen_globe(layer, w, h, rng, inner=None):
     ocean = lin((0.015, 0.06, 0.16)) * (0.7 + 0.3 * smooth(0.55, 0.40, hh))[..., None]
     surf = ocean * (1 - land[..., None]) + ground * land[..., None]
     surf = surf * (1 - ice[..., None]) + lin((0.9, 0.93, 0.97)) * ice[..., None]
-    cl = fbm(tw, tw // 2, rng, base=5, octaves=7)
+    cl = 0.55 * fbm(tw, tw // 2, rng, base=10, octaves=6) + 0.45 * fbm(tw, tw // 2, rng, base=28, octaves=4)
     swirl = fbm(tw, tw // 2, rng, base=2, octaves=3)
     cl = cl[np.clip((jj + (swirl - 0.5) * 80).astype(int), 0, tw // 2 - 1), (ii + (swirl - 0.5) * 300).astype(int) % tw]
-    clouds = smooth(0.52, 0.72, cl[tj, ti])
+    clouds = smooth(0.50, 0.66, cl[tj, ti]) * 0.9
     sun = np.array([0.88, -0.30, layer.params.get("sun_z", -0.18)]) if layer.params.get("night", True) else np.array([0.3, -0.3, 0.9])
     sun = sun / np.linalg.norm(sun)
     ndl = nx * sun[0] + ny * sun[1] + nz * sun[2]
     day = smooth(-0.05, 0.25, ndl)
-    twilight = np.exp(-((ndl - 0.0) / 0.08) ** 2)
-    shade = surf * (1 - clouds[..., None] * 0.9) + lin((0.80, 0.82, 0.86)) * clouds[..., None] * 0.8
-    lit = shade * (day[..., None] * 0.9) + lin((1.0, 0.45, 0.2)) * (twilight * 0.25)[..., None] * (0.4 + clouds[..., None])
+    twilight = np.exp(-((ndl - 0.02) / 0.035) ** 2)
+    shade = surf * (1 - clouds[..., None] * 0.9) + lin((0.80, 0.82, 0.86)) * clouds[..., None] * 0.55
+    lit = shade * (day[..., None] * 0.9) + lin((1.0, 0.55, 0.25)) * (twilight * 0.10)[..., None] * (0.3 + clouds[..., None])
     glint = np.clip(nx * (sun[0] + 0) + ny * sun[1] + nz * (sun[2] + 1), 0, None)
-    glint = (glint / max(1e-3, np.linalg.norm(sun + np.array([0, 0, 1])))) ** 120
-    lit += (glint * (1 - land) * (1 - clouds))[..., None] * 2.0
-    citytex = fbm(tw, tw // 2, rng, base=40, octaves=4)
+    glint = (glint / max(1e-3, np.linalg.norm(sun + np.array([0, 0, 1])))) ** 600
+    lit += (glint * (1 - land) * (1 - clouds) * day)[..., None] * 0.6
+    citytex = 0.5 * fbm(tw, tw // 2, rng, base=40, octaves=3) + 0.5 * fbm(tw, tw // 2, rng, base=220, octaves=2)
     coastal = np.exp(-((hh - 0.56) / 0.04) ** 2) + 0.5 * smooth(0.55, 0.65, hh)
     big = R > w                                                   # close orbit: denser, finer lights
-    lo_t = 0.55 if big else 0.66
-    lights = land * smooth(lo_t, lo_t + 0.16, citytex[tj, ti]) ** 2 * (0.3 + coastal) * (1.2 if big else 0.6)
-    lights += np.exp(-r2 * R**2 / 900) * 3.0                      # our city, ~30 px across
+    lo_t = 0.52 if big else 0.56
+    lights = land * smooth(lo_t, lo_t + 0.14, citytex[tj, ti]) ** 2 * (0.35 + coastal) * (1.1 if big else 0.9)
+    lights += np.exp(-r2 * R**2 / 64) * 2.0                       # our city, a bright point under the camera
     lights *= (1 - day) * (1 - 0.75 * clouds)
     lit += lin((1.0, 0.62, 0.28)) * lights[..., None] * 0.9
     lit += shade * (1 - day[..., None]) * 0.035 * lin((0.6, 0.7, 1.0))   # moonlit night side
