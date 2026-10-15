@@ -10,6 +10,19 @@ episode.yaml ──► narration (ElevenLabs / macOS say / silent, cached per li
              ──► grade + HUD scale readout + captions ──► ffmpeg ──► mp4 + srt + upload.json
 ```
 
+## Launching the channel and publishing
+
+```bash
+python -m scale_engine.brand                     # logo (svg/png, dark/light/transparent), icon, banner
+python -m scale_engine.youtube checklist         # the browser-only steps: create channel, handle, avatar
+python -m scale_engine.youtube auth              # reuses INVISIBLE 589's OAuth client; pick SCALE on consent
+python -m scale_engine build ep001 --tts elevenlabs --publish   # render, then post automatically
+python -m scale_engine.youtube launch ep001      # or: branding + upload + thumbnail + playlist in one go
+```
+
+The full step list is in `brand/CHANNEL_SETUP.md`. Publishing refuses previews and silent renders. It also refuses renders that still use previz art, unless you pass `--allow-previz`.
+Every build credits **Ajay Haynes** three ways: a watermark, an intro lockup over the hook, and an end card. It also archives the exact narration that shipped in `build/<ep>/postmortem/`: each line's WAV, the voice-only stem, and `script.md` with timings and voice settings.
+
 ## Setup (Mac)
 
 ```bash

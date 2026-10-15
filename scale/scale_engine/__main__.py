@@ -1,6 +1,6 @@
 """SCALE command line.  Run from the scale/ folder:  python -m scale_engine <command> ...
 
-  build    EP [--preview] [--tts elevenlabs|say|silent]   render an episode to mp4
+  build    EP [--preview] [--tts elevenlabs|say|silent] [--publish]   render (and post) an episode
   batch    [--preview] [--tts ...]                        build every episode in episodes/
   stills   EP [--at 1.5 10 30]                            frames + contact sheet for quick checks
   previz   EP                                             generate placeholder layer art only
@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -40,6 +41,8 @@ def main(argv=None):
     b.add_argument("--preview", action="store_true", help="half-res, 24fps, fast encode")
     b.add_argument("--tts", choices=["elevenlabs", "say", "silent"])
     b.add_argument("--workers", type=int)
+    b.add_argument("--publish", action="store_true", help="upload to the SCALE channel when the render finishes")
+    b.add_argument("--allow-previz", action="store_true", help="with --publish: allow layers still on previz art")
 
     ba = sub.add_parser("batch")
     ba.add_argument("--preview", action="store_true")
@@ -76,7 +79,15 @@ def main(argv=None):
 
     if a.cmd == "build":
         from .pipeline import build
-        build(_ep(a.episode), a.tts, a.preview, a.workers)
+        out = build(_ep(a.episode), a.tts, a.preview, a.workers)
+        if a.publish:
+            from . import youtube
+            eid = out.parent.name
+            try:
+                res = youtube.publish(youtube.client(), eid, allow_previz=a.allow_previz)
+            except youtube.SetupNeeded as e:
+                sys.exit(f"\nnot published: {e}\n{youtube.CHECKLIST}")
+            print(json.dumps(res, indent=2))
     elif a.cmd == "batch":
         from .pipeline import build
         for p in sorted((ROOT / "episodes").glob("*.yaml")):

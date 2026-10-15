@@ -101,7 +101,8 @@ def impact(sr, rng, dur=2.2):
 
 
 def build_mix(cues: list[Cue], cam: Camera, total: float, n_layers: int, cfg: dict,
-              out_path: Path, snaps: list[tuple[float, float]], music: Path | None = None, seed: int = 7) -> Path:
+              out_path: Path, snaps: list[tuple[float, float]], music: Path | None = None, seed: int = 7,
+              voice_stem: Path | None = None) -> Path:
     a = cfg["audio"]
     sr = a["sample_rate"]
     rng = np.random.default_rng(seed)
@@ -115,6 +116,8 @@ def build_mix(cues: list[Cue], cam: Camera, total: float, n_layers: int, cfg: di
         i = int(c.speech_start * sr)
         j = min(n, i + len(clip))
         voice[i:j] += clip[: j - i]
+    if voice_stem:
+        write_wav(voice_stem, voice, sr)
 
     t_c, z_c = _env_track(cam, total + tail)
     scale_ctrl = _upsample(t_c, np.clip(z_c / max(1, n_layers - 1), 0, 1), n, sr)

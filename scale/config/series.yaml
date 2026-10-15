@@ -32,6 +32,12 @@ hud:
   size: 0.050               # main readout, fraction of frame width
   label_fade: 0.35          # layer label shows within this z-distance of a layer
 
+credit:
+  name: Ajay Haynes
+  watermark: {enabled: true, x: 0.055, y: 0.135, size: 0.026, opacity: 0.55}   # top-left, clear of the Shorts UI
+  intro: {enabled: true, start: 0.25, duration: 2.6, y: 0.22, text: "by Ajay Haynes"}  # overlays the hook, never delays it
+  end_card: {enabled: true, duration: 3.6, cta: "SUBSCRIBE FOR THE NEXT ZOOM"}
+
 captions:
   enabled: true
   max_words: 4
@@ -47,6 +53,14 @@ audio:
   air_gain_db: -24          # motion-reactive noise layer
   sfx_gain_db: -9           # whooshes / impacts
   duck_db: -7               # how far the bed dips under narration
+
+youtube:
+  category_id: "28"          # Science & Technology
+  default_language: en
+  privacy: public            # public | unlisted | private
+  made_for_kids: false
+  synthetic_media: false     # set true if an episode shows realistic AI-generated people/events
+  playlist: "SCALE — Every Zoom"
 
 fonts:
   # First file that exists wins. macOS paths first, then common Linux paths.

@@ -185,23 +185,27 @@ layers:
 # is spoken (arrive = fraction through the line, default 0.5). `move: snap` makes a
 # fast whip with motion blur instead of the smooth continuous zoom.
 beats:
+  # The Awe Voice: slow, warm, reverent. Hook in the first line, landing in the last.
   - id: open
     layer: eye
     offset: -0.05
-    text: "This is an eye. Maybe yours."
+    text: "Look closely. This eye is about to see everything."
 
   - id: face
     layer: face
-    text: "Twenty-four millimeters of living glass, set in a face. One of eight billion."
+    text: "Twenty-four millimeters of living glass. One face, of eight billion."
 
   - id: room
     layer: room
     text: "A room. A light left on."
 
+  - id: building
+    layer: rooftop
+    text: "One roof, among millions."
+
   - id: city
     layer: city
-    arrive: 0.65
-    text: "A city, breathing in the dark. Millions of eyes, looking at something else."
+    text: "A city, breathing in the dark."
 
   - id: earth
     layer: earth
@@ -217,23 +221,44 @@ beats:
 
   - id: web
     layer: cosmic_web
-    text: "And the galaxies themselves hang like dew on a web,"
+    text: "And the galaxies hang like dew, on a cosmic web,"
 
   - id: edge
     layer: observable
     arrive: 0.8
     hold: 1.1
-    text: "ninety-three billion light-years of everything we will ever see."
+    text: "ninety-three billion light-years of everything we can ever see."
 
   - id: snap
     layer: eye
     move: snap
     snap: 1.25
-    offset: 0.0
     text: "And somewhere inside all of it,"
 
   - id: close
     layer: eye
     offset: -0.12
-    hold: 1.6
-    text: "the universe grew an eye. And turned it around, to look at itself."
+    hold: 1.4
+    text: "the universe opened an eye. And turned it around, to look at itself."
+
+# Upload metadata (used by `python -m scale_engine.youtube publish`)
+youtube:
+  title: "Your Eye, Zoomed Out to the Edge of Everything"
+  description: |
+    One continuous zoom: from a single human eye to the edge of the observable universe, and back.
+
+    Face. Room. City. Earth. The Solar System. The Milky Way. The cosmic web. Ninety-three billion light-years. Then the snap back, to the eye that was watching all along.
+
+    Narrated by The Awe Voice.
+    Created by Ajay Haynes.
+
+    Subscribe to SCALE: one zoom, everything.
+  tags: [eye, observable universe, cosmic web, powers of ten, milky way, zoom out, universe scale]
+  hashtags: ["#shorts", "#space", "#universe"]
+
+thumbnail:
+  headline: "ZOOM OUT"
+  kicker: "YOUR EYE"
+  footer: "TO THE EDGE OF EVERYTHING"
+  inset_layer: galaxy          # what appears inside the pupil
+  iris: [0.5, 0.5, 0.118]      # center x, y and radius of the iris in the eye image (fractions of width)

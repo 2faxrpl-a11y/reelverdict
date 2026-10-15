@@ -34,7 +34,9 @@ def prepare(ep: Episode, provider: str, preview: bool, workers: int | None = Non
         durs.append(tts.wav_duration(p))
         _log(f"  {b.id:<8} {nar['id']:<8} {durs[-1]:5.2f}s  {b.text}")
 
-    cues, keys, total = layout(ep, durs, paths)
+    cues, keys, story_end = layout(ep, durs, paths)
+    end_card = cfg.get("credit", {}).get("end_card", {})
+    total = story_end + (end_card.get("duration", 0) if end_card.get("enabled") else 0)
     caps = captions(cues, cfg["captions"]["max_words"], cfg["captions"]["max_chars"])
 
     _log("layers")
@@ -46,7 +48,7 @@ def prepare(ep: Episode, provider: str, preview: bool, workers: int | None = Non
         workers = min(4, os.cpu_count() or 1) if w == "auto" else int(w)
     return {
         "episode": str(ep.path), "cfg": cfg, "width": width, "height": height, "fps": fps,
-        "total": total, "keys": keys, "captions": caps, "cues": cues,
+        "total": total, "story_end": story_end, "keys": keys, "captions": caps, "cues": cues,
         "layers": [str(p) for p in layer_paths], "previz": previz,
         "blur_max": ep.cfg["look"]["motion_blur_max_samples"] if not preview else 4,
         "workers": workers, "provider": provider,
@@ -71,8 +73,11 @@ def build(path: str, provider: str | None = None, preview: bool = False, workers
             snaps.append((k0.t, k1.t))
     _log(f"score + mix  ({job['total']:.1f}s)")
     music = ep.raw.get("music")
+    pm = bdir / "postmortem"
+    (pm / "lines").mkdir(parents=True, exist_ok=True)
     mix = sound.build_mix(job["cues"], cam, job["total"], len(ep.layers), ep.cfg, bdir / "mix.wav",
-                          snaps, Path(ROOT / music) if music else None)
+                          snaps, Path(ROOT / music) if music else None, voice_stem=pm / "narration_stem.wav")
+    save_postmortem(ep, job, pm)
 
     (bdir / "captions.srt").write_text(to_srt(job["captions"]), encoding="utf-8")
     (bdir / "timeline.json").write_text(json.dumps({
@@ -82,6 +87,9 @@ def build(path: str, provider: str | None = None, preview: bool = False, workers
         "previz_layers": job["previz"],
     }, indent=2), encoding="utf-8")
     write_upload_meta(ep, job, bdir / "upload.json")
+    from .brand import thumbnails
+    for p in thumbnails(ep, [Path(x) for x in job["layers"]], bdir):
+        _log(f"thumbnail  {p}")
 
     tag = ("_preview" if preview else "") + ("_previz" if job["previz"] else "") + \
           ("" if provider != "silent" else "_silent")
@@ -104,19 +112,51 @@ def build(path: str, provider: str | None = None, preview: bool = False, workers
     return out
 
 
+def save_postmortem(ep: Episode, job: dict, pm: Path) -> None:
+    """Keep the exact narration that shipped: every line, the placed stem, and the script with timings."""
+    import shutil
+    rows = ["| # | beat | narrator | starts | length | line |", "|---|---|---|---|---|---|"]
+    for i, c in enumerate(job["cues"], 1):
+        if c.audio:
+            shutil.copy2(c.audio, pm / "lines" / f"{i:02d}_{c.beat_id}.wav")
+        rows.append(f"| {i} | {c.beat_id} | {c.narrator} | {c.speech_start:.2f}s | "
+                    f"{c.speech_end - c.speech_start:.2f}s | {c.text} |")
+    leads = sorted({c.narrator for c in job["cues"]})
+    voices = {n: {k: v for k, v in ep.cast["narrators"][n].items() if k in ("name", "elevenlabs", "say", "pace_wpm", "pre", "gap")}
+              for n in leads}
+    md = [f"# {ep.id} narration postmortem", "",
+          f"- provider: `{job['provider']}`",
+          f"- story length: {job['story_end']:.2f}s (+ end card, total {job['total']:.2f}s)",
+          f"- voices: {', '.join(v['name'] for v in voices.values())}", "",
+          "## Lines", "", *rows, "",
+          "## Voice settings used", "", "```json", json.dumps(voices, indent=2), "```", "",
+          "## Notes after publishing", "", "- retention dip at:", "- line to rewrite:", "- pacing:", ""]
+    (pm / "script.md").write_text("\n".join(md), encoding="utf-8")
+
+
 def write_upload_meta(ep: Episode, job: dict, path: Path) -> None:
     series = ep.cfg["series"]
+    yt = ep.raw.get("youtube", {})
     narrators = sorted({c.narrator for c in job["cues"]})
-    script = " ".join(c.text for c in job["cues"])
+    title = yt.get("title", ep.title)[:100]
+    desc = yt.get("description") or " ".join(c.text for c in job["cues"])
+    tags_line = " ".join(yt.get("hashtags", ["#shorts"]))
+    desc = f"{desc.strip()}\n\n{tags_line}"[:5000]
+    tags, used = [], 0
+    for t in dict.fromkeys(series.get("default_tags", []) + yt.get("tags", []) + ep.raw.get("tags", [])):
+        if used + len(t) + 1 > 480:          # YouTube caps tags at 500 characters in total
+            break
+        tags.append(t)
+        used += len(t) + 1
     meta = {
-        "title": f"{ep.title} #shorts",
-        "description": f"{script}\n\n{series['name']} — {series['tagline']}\n#shorts #space #science",
-        "tags": list(dict.fromkeys(series.get("default_tags", []) + ep.raw.get("tags", []))),
+        "title": title, "description": desc, "tags": tags,
+        "category_id": ep.cfg.get("youtube", {}).get("category_id", "28"),
         "episode": ep.id,
         "narrators": [ep.cast["narrators"][n]["name"] for n in narrators],
         "duration_s": round(job["total"], 2),
         "direction": ep.direction,
         "previz_layers": job["previz"],
+        "provider": job["provider"],
     }
     path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 

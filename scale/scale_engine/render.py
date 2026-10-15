@@ -197,6 +197,8 @@ class Overlay:
         y, x = np.mgrid[0:height, 0:width].astype(np.float32)
         r = np.sqrt(((x - width / 2) / (width / 2)) ** 2 + ((y - height / 2) / (height / 2)) ** 2) / math.sqrt(2)
         self.vig = (1 - self.look["vignette"] * np.clip(r, 0, 1) ** 2.2)[..., None]
+        self.credit = cfg.get("credit", {})
+        self._init_credits(width, height)
         rng = np.random.default_rng(seed)
         self.grain = [(rng.standard_normal((height, width, 1)) * 255 * self.look["grain"]).astype(np.float32)
                       for _ in range(6)]
@@ -206,6 +208,80 @@ class Overlay:
         if self.look["grain"] > 0:
             out += self.grain[frame_idx % len(self.grain)]
         return np.clip(out, 0, 255).astype(np.uint8)
+
+    def _init_credits(self, W: int, H: int):
+        from .brand import FONT_LIGHT, FONT_TEXT, OUT, build_all
+        logo_path = OUT / "scale_logo_transparent_white.png"
+        if not logo_path.exists():
+            build_all()
+        self.logo = Image.open(logo_path).convert("RGBA")
+        self.f_credit = ImageFont.truetype(str(FONT_TEXT), max(10, int(W * self.credit.get("watermark", {}).get("size", 0.026))))
+        self.f_end = ImageFont.truetype(str(FONT_LIGHT), max(10, int(W * 0.040)))
+        self.f_cta = ImageFont.truetype(str(FONT_TEXT), max(10, int(W * 0.030)))
+        self._logo_cache = {}
+
+    def _logo(self, width: int) -> Image.Image:
+        if width not in self._logo_cache:
+            h = int(round(self.logo.height * width / self.logo.width))
+            self._logo_cache[width] = self.logo.resize((width, h), Image.LANCZOS)
+        return self._logo_cache[width]
+
+    def _paste_alpha(self, img: Image.Image, logo: Image.Image, cx: float, cy: float, a: float):
+        if a <= 0.01:
+            return
+        lg = logo
+        if a < 1:
+            lg = logo.copy()
+            lg.putalpha(lg.getchannel("A").point(lambda v: int(v * a)))
+        img.alpha_composite(lg, (int(cx - lg.width / 2), int(cy - lg.height / 2)))
+
+    def credits(self, img: Image.Image, t: float, story_end: float, total: float) -> Image.Image:
+        """Ajay Haynes credit: watermark throughout, intro lockup over the hook, end card."""
+        c = self.credit
+        if not c:
+            return img
+        W, H = self.W, self.H
+        img = img.convert("RGBA")
+        layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        intro = c.get("intro", {})
+        wm = c.get("watermark", {})
+        in_intro = intro.get("enabled") and t < intro.get("start", 0) + intro.get("duration", 0) + 0.4
+        if wm.get("enabled") and not in_intro and t < story_end:
+            a = wm.get("opacity", 0.5) * min(1.0, (t - intro.get("duration", 0)) / 0.6 if intro.get("enabled") else 1.0)
+            a *= min(1.0, max(0.0, (story_end - t) / 0.5))
+            if a > 0.01:
+                d.text((wm["x"] * W, wm["y"] * H), c["name"], font=self.f_credit, anchor="lm",
+                       fill=(255, 255, 255, int(255 * a)))
+        if intro.get("enabled"):
+            t0, dur = intro.get("start", 0), intro.get("duration", 2.5)
+            a = min(1.0, max(0.0, (t - t0) / 0.35), max(0.0, (t0 + dur - t) / 0.45))
+            if a > 0:
+                lw = int(W * 0.30)
+                lg = self._logo(lw)
+                y = intro.get("y", 0.22) * H
+                self._paste_alpha(layer, lg, W / 2, y, a)
+                d.text((W / 2, y + lg.height * 0.62), intro.get("text", "by " + c["name"]), font=self.f_credit,
+                       anchor="mm", fill=(255, 255, 255, int(220 * a)))
+        img = Image.alpha_composite(img, layer)
+        end = c.get("end_card", {})
+        if end.get("enabled") and t >= story_end:
+            u = t - story_end
+            black = Image.new("RGBA", img.size, (4, 5, 7, int(255 * min(1.0, u / 0.7))))
+            img = Image.alpha_composite(img, black)
+            card = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            dc = ImageDraw.Draw(card)
+            a = min(1.0, max(0.0, (u - 0.45) / 0.6), max(0.0, (total - t) / 0.35))
+            lg = self._logo(int(W * 0.62))
+            self._paste_alpha(card, lg, W / 2, H * 0.44, a)
+            dc.text((W / 2, H * 0.44 + lg.height * 0.75), "Created by " + c["name"], font=self.f_end,
+                    anchor="mm", fill=(244, 239, 230, int(235 * a)))
+            a2 = min(1.0, max(0.0, (u - 1.1) / 0.6), max(0.0, (total - t) / 0.35))
+            if end.get("cta"):
+                dc.text((W / 2, H * 0.44 + lg.height * 0.75 + W * 0.085), end["cta"], font=self.f_cta,
+                        anchor="mm", fill=(232, 166, 87, int(230 * a2)))
+            img = Image.alpha_composite(img, card)
+        return img.convert("RGB")
 
     def text(self, img: Image.Image, t: float, z: float, total: float) -> Image.Image:
         layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -266,7 +342,10 @@ def render_frame(i: int) -> bytes:
             acc = a if acc is None else acc + a
         arr = acc / n
     img = Image.fromarray(over.grade(arr, i))
-    img = over.text(img, t, cam(t), job["total"])
+    story_end = job.get("story_end", job["total"])
+    if t < story_end:
+        img = over.text(img, t, cam(t), story_end)
+    img = over.credits(img, t, story_end, job["total"])
     return img.tobytes()
 
 
