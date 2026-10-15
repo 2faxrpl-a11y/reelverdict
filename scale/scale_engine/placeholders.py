@@ -379,10 +379,10 @@ def gen_stars(layer, w, h, rng):
     return tone(img)
 
 
-def _spiral(size: int, rng, n=220_000, arms=2, pitch=0.22, color_core=(1.0, 0.8, 0.5)) -> np.ndarray:
+def _spiral(size: int, rng, n=220_000, arms=2, pitch=0.22, color_core=(1.0, 0.8, 0.5), scale=0.18) -> np.ndarray:
     img = np.zeros((size, size, 3), np.float32)
     c = size / 2
-    r = rng.exponential(0.18, n) * size * 0.5
+    r = rng.exponential(scale, n) * size * 0.5
     r = r[r < size * 0.5]
     m = len(r)
     arm = rng.integers(0, arms, m) * (2 * math.pi / arms)
@@ -497,8 +497,13 @@ GENERATORS = {
 }
 
 
-def generate(layer: Layer, w: int, h: int, seed: int) -> Image.Image:
-    if layer.kind not in GENERATORS:
-        raise KeyError(f"no placeholder generator for kind '{layer.kind}' (have: {', '.join(GENERATORS)})")
+def generate(layer: Layer, w: int, h: int, seed: int, inner=None, style: str = "cinematic") -> Image.Image:
+    """Paint a layer. style 'cinematic' uses scale_engine.art; 'sketch' the fast blocking generators."""
     rng = np.random.default_rng(seed)
+    if style == "cinematic":
+        from .art import GENERATORS as ART
+        if layer.kind in ART:
+            return ART[layer.kind](layer, w, h, rng, inner)
+    if layer.kind not in GENERATORS:
+        raise KeyError(f"no generator for kind '{layer.kind}' (have: {', '.join(GENERATORS)})")
     return GENERATORS[layer.kind](layer, w, h, rng)

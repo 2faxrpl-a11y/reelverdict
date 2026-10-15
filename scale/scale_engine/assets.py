@@ -33,9 +33,11 @@ def real_asset(ep: Episode, layer: Layer) -> Path | None:
     return None
 
 
-def placeholder_path(ep: Episode, layer: Layer, width: int) -> Path:
-    key = json.dumps([layer.kind, layer.meters, layer.inner_at, layer.params, width,
-                      placeholders.__file__ and Path(placeholders.__file__).stat().st_mtime], default=str)
+def placeholder_path(ep: Episode, layer: Layer, width: int, inner_key: str = "") -> Path:
+    from . import art
+    key = json.dumps([layer.kind, layer.meters, layer.inner_at, layer.params, width, ep.cfg.get("art", {}),
+                      Path(placeholders.__file__).stat().st_mtime, Path(art.__file__).stat().st_mtime, inner_key],
+                     default=str)
     h = hashlib.sha1(key.encode()).hexdigest()[:10]
     return ROOT / "build" / "cache" / "previz" / f"{ep.id}_{layer.id}_{width}_{h}.png"
 
@@ -43,16 +45,22 @@ def placeholder_path(ep: Episode, layer: Layer, width: int) -> Path:
 def resolve(ep: Episode, width: int, log=print) -> tuple[list[Path], list[str]]:
     """Return one image per layer plus the ids of layers still on placeholders."""
     paths, previz = [], []
+    art = ep.cfg.get("art", {})
+    style = art.get("style", "cinematic")
+    final = art.get("mode", "previz") == "code"        # code-built art is the finished look, not previz
     for i, layer in enumerate(ep.layers):
         p = real_asset(ep, layer)
         if p is None:
-            p = placeholder_path(ep, layer, width)
+            inner_key = paths[-1].name if paths else ""
+            p = placeholder_path(ep, layer, width, inner_key)
             if not p.exists():
                 p.parent.mkdir(parents=True, exist_ok=True)
-                log(f"  previz  {layer.id:<14} ({layer.kind})")
+                log(f"  paint   {layer.id:<14} ({layer.kind})")
                 h = int(round(width * ep.aspect))
-                placeholders.generate(layer, width, h, seed=1000 + i).save(p)
-            previz.append(layer.id)
+                inner = (Image.open(paths[-1]), ep.layers[i - 1]) if paths else None
+                placeholders.generate(layer, width, h, seed=1000 + i, inner=inner, style=style).save(p)
+            if not final:
+                previz.append(layer.id)
         paths.append(p)
     return paths, previz
 

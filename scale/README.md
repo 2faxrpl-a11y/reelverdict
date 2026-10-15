@@ -55,9 +55,18 @@ File names carry `_previz` while any layer is still procedural art, and `_silent
 - `move: snap` makes a whip move (exponential ease, up to 8-sample motion blur, whoosh plus sub impact). Episode one uses it for the snap back to the eye.
 - **Zoom in vs out** is only beat order. List beats from the biggest layer to the smallest for a dive-in episode.
 
-## Getting from previz to final pictures
+## The art: code-built and cinematic by default
 
-Every layer kind has a procedural generator, so an episode renders before any real image exists. The cosmic layers are close to shippable. The human-scale ones (eye, face, room) are blocking art.
+`config/series.yaml → art.mode: code`. Every layer is painted from math in `scale_engine/art.py`:
+- **Human scale** is lit from height fields with real surface normals. The eye has strand-by-strand lashes and brow, iris fibers and crypts, and a softbox catchlight. The face and room add soft shadows, lamp and moonlight, and wood-grain floors.
+- **City layers** have street grids, building tops, streetlight pools and car lights. Wider views show urban sky glow and highways.
+- **Space layers:** Earth with atmosphere, clouds and night-side city lights; the Sun and planets; a Milky Way band with dust lanes; a spiral galaxy with a bar and dust lanes; the cosmic web; and the observable universe with its cosmic-background edge.
+- **Each layer receives the image inside it.** For example, the face is painted with the eye layer's own eye, so neighboring scales share content. The compositor then matches lighting across seams.
+- **Every frame gets a film finish:** bloom, halation, chromatic aberration, a teal/amber split tone, vignette and grain. Scale dust drifts with the zoom and streaks on fast moves.
+
+Real photos or renders still slot in at any time: drop `assets/<ep>/<layer>.png` and that layer switches over. Set `art.mode: previz` if you want generated layers flagged as placeholders.
+
+## Swapping in real stills (optional)
 
 For real stills, work **innermost first** and outpaint outward. Then every seam lines up by construction:
 

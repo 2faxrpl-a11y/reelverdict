@@ -98,7 +98,7 @@ layers:
     meters: 4000000
     label: A continent
     kind: globe
-    params: {night: true}
+    params: {night: true, sun_z: -0.55}
     prompt: >
       orbital night photo over a continent, city lights like embers, thin blue atmosphere
       at the curved horizon, the bright coastal city at the center

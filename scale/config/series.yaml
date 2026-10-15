@@ -17,14 +17,23 @@ output:
   vt_bitrate: 18M           # videotoolbox bitrate
   workers: auto             # parallel frame workers (auto = min(4, cpu count))
 
+art:
+  mode: code                # code = procedural art is the finished look; previz = placeholder until real stills
+  style: cinematic          # cinematic (scale_engine/art.py) | sketch (fast blocking art)
+
 look:
   feather: 0.14             # soft edge of each inner layer, fraction of its width
   vignette: 0.38
   grain: 0.022
   motion_blur_max_samples: 8
   seam_match: true          # blend each inner image's edges into the image around it
-  magnify_fade: [6, 20]     # base layer fades to background between these blow-up factors
+  magnify_fade: [2, 6]      # base layer fades to background between these blow-up factors
   background: [0, 0, 0]
+  bloom: 0.35               # film finish, applied to every frame
+  halation: 0.18
+  aberration: 0.0015        # chromatic aberration, fraction of frame size
+  split_tone: 0.8           # teal shadows / amber highlights
+  dust: {enabled: true, count: 240, opacity: 0.45, rate: 0.55}
 
 hud:
   enabled: true

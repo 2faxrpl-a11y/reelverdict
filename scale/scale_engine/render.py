@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from .spec import Episode, load_episode
 from .timeline import Camera, Caption, format_scale
@@ -46,6 +46,10 @@ def _feather_mask(w: int, h: int, feather: float) -> Image.Image:
     return Image.fromarray((m * 255).astype(np.uint8), "L")
 
 
+SPACE_KINDS = {"earth_moon", "solar", "stars", "galaxy", "local_group", "cosmic_web", "observable"}
+SAME_LIGHT = {"eye", "face", "room"}          # one lamp-lit scene: low frequencies may be matched fully
+
+
 class LayerImage:
     def __init__(self, img: Image.Image, feather: float):
         rgba = img.convert("RGBA")
@@ -72,7 +76,7 @@ def _load(path: Path, aspect: float, max_w: int) -> Image.Image:
 
 
 def seam_match(inner: Image.Image, outer: Image.Image, frac: float, at: tuple[float, float],
-               reach: float = 0.35) -> Image.Image:
+               reach: float = 0.5, full: bool = False) -> Image.Image:
     """Shift the inner image's low frequencies toward the outer image near its edges.
 
     `frac` is the inner layer's width as a fraction of the outer's, `at` its
@@ -85,7 +89,7 @@ def seam_match(inner: Image.Image, outer: Image.Image, frac: float, at: tuple[fl
     box = (at[0] * ow - bw / 2, at[1] * oh - bh / 2, at[0] * ow + bw / 2, at[1] * oh + bh / 2)
     target = np.asarray(outer.resize((gw, gh), Image.BOX, box=box), np.float32)
     have = np.asarray(inner.resize((gw, gh), Image.BOX), np.float32)
-    diff = target - have
+    diff = np.clip(target - have, -70, 70)
     w, h = inner.size
     up = np.stack([np.asarray(Image.fromarray(diff[..., c], "F").resize((w, h), Image.BICUBIC)) for c in range(3)], -1)
     x = np.minimum(np.arange(w), np.arange(w)[::-1]) / (w / 2)
@@ -93,6 +97,11 @@ def seam_match(inner: Image.Image, outer: Image.Image, frac: float, at: tuple[fl
     d = np.minimum(x[None, :], y[:, None])
     wgt = np.clip(1 - d / reach, 0, 1)
     wgt = wgt * wgt * (3 - 2 * wgt)
+    if full:                                 # same-light scenes: match everything but the subject at the center
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        rc = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (w / 2))
+        core = np.clip((rc - 0.35) / 0.3, 0, 1)
+        wgt = np.maximum(wgt, core * core * (3 - 2 * core))
     out = np.asarray(inner, np.float32) + up * wgt[..., None]
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
@@ -109,7 +118,8 @@ class Compositor:
         if look.get("seam_match", True):
             for j in range(len(imgs) - 2, -1, -1):   # each against the untouched outer image
                 L, O = ep.layers[j], ep.layers[j + 1]
-                imgs[j] = seam_match(imgs[j], imgs[j + 1], L.meters / O.meters, O.inner_at)
+                imgs[j] = seam_match(imgs[j], imgs[j + 1], L.meters / O.meters, O.inner_at,
+                                     full=L.kind in SAME_LIGHT and O.kind in SAME_LIGHT)
         self.layers = [LayerImage(im, look["feather"]) for im in imgs]
 
     def _rect(self, j: int, v: float, cx: float, cy: float):
@@ -167,6 +177,8 @@ class Compositor:
             mag = w / li.opaque[0].width
             lo, hi = self.fade
             f = min(1.0, max(0.0, (mag - lo) / (hi - lo)))
+            if self.ep.layers[j].kind not in SPACE_KINDS:
+                f = 0.0                      # human-scale layers soften instead of going dark
             if f > 0:
                 patch = Image.blend(patch, Image.new("RGB", patch.size, self.bg), f * f * (3 - 2 * f))
             out.paste(patch.convert("RGBA"), (x0, y0))
@@ -197,6 +209,9 @@ class Overlay:
         y, x = np.mgrid[0:height, 0:width].astype(np.float32)
         r = np.sqrt(((x - width / 2) / (width / 2)) ** 2 + ((y - height / 2) / (height / 2)) ** 2) / math.sqrt(2)
         self.vig = (1 - self.look["vignette"] * np.clip(r, 0, 1) ** 2.2)[..., None]
+        mrng = np.random.default_rng(seed + 11)
+        n_m = int(self.look.get("dust", {}).get("count", 240))
+        self._motes = list(zip(mrng.uniform(0, 2 * math.pi, n_m), mrng.random(n_m), mrng.pareto(2.0, n_m) * 0.4 + 0.25))
         self.credit = cfg.get("credit", {})
         self._init_credits(width, height)
         rng = np.random.default_rng(seed)
@@ -204,10 +219,79 @@ class Overlay:
                       for _ in range(6)]
 
     def grade(self, arr: np.ndarray, frame_idx: int) -> np.ndarray:
-        out = arr.astype(np.float32) * self.vig
-        if self.look["grain"] > 0:
+        """Film finish: bloom + halation, chromatic aberration, split-tone grade, vignette, grain."""
+        lk = self.look
+        out = arr.astype(np.float32)
+        W, H = self.W, self.H
+        if lk.get("bloom", 0) > 0 or lk.get("halation", 0) > 0:
+            small = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).reduce(4)
+            hot = np.clip(np.asarray(small, np.float32) - 150, 0, None) * (255 / 105)
+            hot_img = Image.fromarray(np.clip(hot, 0, 255).astype(np.uint8))
+            b1 = np.asarray(hot_img.filter(ImageFilter.GaussianBlur(W / 4 * 0.006)).resize((W, H), Image.BILINEAR), np.float32)
+            b2 = np.asarray(hot_img.filter(ImageFilter.GaussianBlur(W / 4 * 0.03)).resize((W, H), Image.BILINEAR), np.float32)
+            out += lk.get("bloom", 0) * (0.6 * b1 + 0.4 * b2)
+            out += lk.get("halation", 0) * b2 * np.array([1.0, 0.35, 0.15], np.float32)
+        ca = lk.get("aberration", 0)
+        if ca > 0:
+            im = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+            r, g, b = im.split()
+
+            def scaled(ch, f):
+                cw, chh = int(round(W * f)), int(round(H * f))
+                big = ch.resize((cw, chh), Image.BILINEAR)
+                x0, y0 = (cw - W) // 2, (chh - H) // 2
+                if f >= 1:
+                    return big.crop((x0, y0, x0 + W, y0 + H))
+                canvas = Image.new("L", (W, H), 0)
+                canvas.paste(big, (-x0, -y0))
+                return canvas
+            out = np.stack([np.asarray(scaled(r, 1 + ca), np.float32), np.asarray(g, np.float32),
+                            np.asarray(scaled(b, 1 - ca), np.float32)], -1)
+        tone = lk.get("split_tone", 0)
+        if tone > 0:                                            # teal shadows, amber highlights
+            l = out.mean(-1, keepdims=True) / 255
+            out += tone * 255 * ((1 - l) ** 2 * np.array([-0.02, 0.01, 0.035]) + l**2 * np.array([0.03, 0.01, -0.03]))
+        out *= self.vig
+        if lk["grain"] > 0:
             out += self.grain[frame_idx % len(self.grain)]
         return np.clip(out, 0, 255).astype(np.uint8)
+
+    def dust(self, arr: np.ndarray, z: float, z_prev: float, n_layers: int) -> np.ndarray:
+        """Scale dust: motes that drift toward the center as we zoom out, and streak on fast moves."""
+        cfg = self.look.get("dust", {})
+        if not cfg or not cfg.get("enabled", True):
+            return arr
+        W, H = self.W, self.H
+        speed = abs(z - z_prev)
+        space = min(1.0, max(0.0, (z - 3.5) / 2.0))
+        a_base = cfg.get("opacity", 0.5) * max(space, min(1.0, speed * 4))
+        if a_base < 0.01:
+            return arr
+        layer = Image.new("L", (W, H), 0)
+        d = ImageDraw.Draw(layer)
+        rate, span = cfg.get("rate", 0.55), math.log(1.6 * H / (0.02 * W))
+        rmin = 0.02 * W
+        cx, cy = W / 2, H / 2
+        for th, ph, b in self._motes:
+            u = (ph - z * rate) % 1.0
+            u0 = (ph - z_prev * rate) % 1.0
+            r = rmin * math.exp(span * u)
+            r0 = rmin * math.exp(span * u0)
+            if abs(u - u0) > 0.5:                      # wrapped this frame: no streak across the wrap
+                r0 = r
+            r0 = r + max(-0.35 * H, min(0.35 * H, r0 - r))
+            fade = math.sin(math.pi * u)
+            a = int(255 * a_base * b * fade)
+            if a < 4:
+                continue
+            c, s_ = math.cos(th), math.sin(th)
+            wd = 1 if abs(r0 - r) < 3 else 2
+            if abs(r0 - r) < 1.5:
+                d.ellipse([cx + c * r - 1.2, cy + s_ * r - 1.2, cx + c * r + 1.2, cy + s_ * r + 1.2], fill=a)
+            else:
+                d.line([(cx + c * r0, cy + s_ * r0), (cx + c * r, cy + s_ * r)], fill=a, width=wd)
+        m = np.asarray(layer.filter(ImageFilter.GaussianBlur(0.6)), np.float32)[..., None] / 255
+        return arr + m * np.array([255, 236, 210], np.float32) * 0.9
 
     def _init_credits(self, W: int, H: int):
         from .brand import FONT_LIGHT, FONT_TEXT, OUT, build_all
@@ -341,6 +425,7 @@ def render_frame(i: int) -> bytes:
             a = np.asarray(comp.frame(cam(tk)), np.float32)
             acc = a if acc is None else acc + a
         arr = acc / n
+    arr = over.dust(arr, cam(t), cam(t - 1 / fps), len(_W["ep"].layers))
     img = Image.fromarray(over.grade(arr, i))
     story_end = job.get("story_end", job["total"])
     if t < story_end:
