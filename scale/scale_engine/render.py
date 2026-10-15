@@ -47,7 +47,7 @@ def _feather_mask(w: int, h: int, feather: float) -> Image.Image:
 
 
 SPACE_KINDS = {"earth_moon", "solar", "stars", "galaxy", "local_group", "cosmic_web", "observable"}
-SAME_LIGHT = {"eye", "face", "room"}          # one lamp-lit scene: low frequencies may be matched fully
+SAME_LIGHT = {"eye", "face", "room", "night_city"}          # one lamp-lit scene: low frequencies may be matched fully
 
 
 class LayerImage:
@@ -76,7 +76,7 @@ def _load(path: Path, aspect: float, max_w: int) -> Image.Image:
 
 
 def seam_match(inner: Image.Image, outer: Image.Image, frac: float, at: tuple[float, float],
-               reach: float = 0.5, full: bool = False) -> Image.Image:
+               reach: float = 0.5, full: bool = False, protect: bool = True) -> Image.Image:
     """Shift the inner image's low frequencies toward the outer image near its edges.
 
     `frac` is the inner layer's width as a fraction of the outer's, `at` its
@@ -97,11 +97,20 @@ def seam_match(inner: Image.Image, outer: Image.Image, frac: float, at: tuple[fl
     d = np.minimum(x[None, :], y[:, None])
     wgt = np.clip(1 - d / reach, 0, 1)
     wgt = wgt * wgt * (3 - 2 * wgt)
-    if full:                                 # same-light scenes: match everything but the subject at the center
-        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-        rc = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (w / 2))
-        core = np.clip((rc - 0.35) / 0.3, 0, 1)
-        wgt = np.maximum(wgt, core * core * (3 - 2 * core))
+    if full:
+        # same-light scenes: multiplicative low-frequency match (keeps hue), everywhere except a
+        # protected subject at the center when `protect` is set
+        if protect:
+            yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+            rc = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (w / 2))
+            core = np.clip((rc - 0.35) / 0.3, 0, 1)
+            wgt = np.maximum(wgt, core * core * (3 - 2 * core))
+        else:
+            wgt = np.ones_like(wgt)
+        gain = np.clip((target + 6) / (have + 6), 0.3, 4.0)
+        gup = np.stack([np.asarray(Image.fromarray(gain[..., c], "F").resize((w, h), Image.BICUBIC)) for c in range(3)], -1)
+        out = np.asarray(inner, np.float32) * np.clip(gup, 0.3, 4.0) ** wgt[..., None]
+        return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
     out = np.asarray(inner, np.float32) + up * wgt[..., None]
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
@@ -119,7 +128,9 @@ class Compositor:
             for j in range(len(imgs) - 2, -1, -1):   # each against the untouched outer image
                 L, O = ep.layers[j], ep.layers[j + 1]
                 imgs[j] = seam_match(imgs[j], imgs[j + 1], L.meters / O.meters, O.inner_at,
-                                     full=L.kind in SAME_LIGHT and O.kind in SAME_LIGHT)
+                                     full=L.kind in SAME_LIGHT and O.kind == L.kind
+                                     or {L.kind, O.kind} <= {"eye", "face", "room"},
+                                     protect=L.kind != "night_city")
         self.layers = [LayerImage(im, look["feather"]) for im in imgs]
 
     def _rect(self, j: int, v: float, cx: float, cy: float):

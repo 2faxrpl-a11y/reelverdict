@@ -655,7 +655,7 @@ def gen_night_city(layer, w, h, rng, inner=None):
         xs = (Xs * math.cos(-ang) - Ys * math.sin(-ang)) * m + cx
         ys = (Xs * math.sin(-ang) + Ys * math.cos(-ang)) * m + cy
         cols = np.where((t < 0.55)[:, None], sodium * 1.2, np.where((t < 0.8)[:, None], red * 0.9, led * 1.1))
-        k = 0.9 if m > 1 else 0.32
+        k = 0.9 if m > 1 else 0.6
         splat(img, xs, ys, cols * k * (0.4 + rng.random(n_l)[:, None]), sigma=max(0.6, 1.6 * m))
         # the building at the very center is the rooftop we came from
         glow(img, cx, cy, max(1.0, 3 * m), sodium, 0.8, 2)
@@ -672,7 +672,7 @@ def gen_night_city(layer, w, h, rng, inner=None):
         splat(img, xs, ys, cols, sigma=0.75)
         img += sodium * (blur(dens * land, w * 0.01) * 0.10)[..., None]          # urban sky glow
     # highways: smooth curves radiating out, dotted with traffic
-    for k in range(int(p.get("roads", 9))):
+    for k in range(int(p.get("roads", 9)) if m < 1 else 0):      # at street scale the streets are the roads
         a = rng.uniform(0, 2 * math.pi)
         tt = np.linspace(0, 1, 4000)
         R = tt * max(w, h) * 0.9
@@ -689,7 +689,7 @@ def gen_night_city(layer, w, h, rng, inner=None):
         g = fbm(w, h, rng, base=60, octaves=2)
         img += ((1 - land) * np.clip(g - 0.6, 0, 1) * 0.15 * np.exp(-((X / layer.meters - 0.35) / 0.15) ** 2))[..., None] * lin((0.6, 0.7, 0.9))
     inner, il = unpack(inner)
-    if il is not None and il.meters / layer.meters * w >= 8:
+    if il is not None and il.kind != "night_city" and il.meters / layer.meters * w >= 8:
         iw = il.meters / layer.meters * w
         img = embed(img, inner, cx, cy, iw, mask=soft_rect(w, h, cx, cy, iw * 0.8, iw * 0.8 * h / w, iw * 0.15))
     return finish(img * 1.6, bloom_amt=0.5, sat=1.05)
@@ -719,10 +719,17 @@ def gen_globe(layer, w, h, rng, inner=None):
     hmap = 0.6 * hmap + 0.4 * _resize(hmap, tw, tw // 2)
     jj, ii = np.mgrid[0:tw // 2, 0:tw]
     hmap = hmap[np.clip((jj + (warp - 0.5) * 120).astype(int), 0, tw // 2 - 1), (ii + (warp - 0.5) * 240).astype(int) % tw]
-    hh = hmap[tj, ti] + 0.3 * np.exp(-r2 * 25)                   # our continent under the camera
+    big = R > w                                                   # close orbit: paint detail at screen resolution
+    if big:
+        def tex(base, octv):
+            return fbm(w, h, rng, base=base, octaves=octv)
+        hmap_s = 0.6 * tex(3, 8) + 0.4 * tex(9, 6)
+    hh = (hmap_s if big else hmap[tj, ti]) + 0.3 * np.exp(-r2 * 25)   # our continent under the camera
     land = smooth(0.53, 0.55, hh)
     latf = np.abs(lat) / (math.pi / 2)
     desert = smooth(0.15, 0.35, latf) * smooth(0.55, 0.4, latf) * fbm(tw, tw // 2, rng, 6, 4)[tj, ti]
+    if big:
+        desert = desert * 0 + 0.3 * smooth(0.5, 0.7, fbm(w, h, rng, 5, 5))
     ground = lin((0.13, 0.20, 0.09)) * (1 - desert[..., None]) + lin((0.55, 0.42, 0.26)) * desert[..., None]
     ground = ground * (0.7 + 0.6 * (hh[..., None] - 0.55))
     ice = smooth(0.78, 0.86, latf)
@@ -732,7 +739,7 @@ def gen_globe(layer, w, h, rng, inner=None):
     cl = 0.55 * fbm(tw, tw // 2, rng, base=10, octaves=6) + 0.45 * fbm(tw, tw // 2, rng, base=28, octaves=4)
     swirl = fbm(tw, tw // 2, rng, base=2, octaves=3)
     cl = cl[np.clip((jj + (swirl - 0.5) * 80).astype(int), 0, tw // 2 - 1), (ii + (swirl - 0.5) * 300).astype(int) % tw]
-    clouds = smooth(0.50, 0.66, cl[tj, ti]) * 0.9
+    clouds = smooth(0.50, 0.66, (0.55 * tex(6, 7) + 0.45 * tex(20, 5)) if big else cl[tj, ti]) * 0.9
     sun = np.array([0.88, -0.30, layer.params.get("sun_z", -0.18)]) if layer.params.get("night", True) else np.array([0.3, -0.3, 0.9])
     sun = sun / np.linalg.norm(sun)
     ndl = nx * sun[0] + ny * sun[1] + nz * sun[2]
@@ -745,12 +752,21 @@ def gen_globe(layer, w, h, rng, inner=None):
     lit += (glint * (1 - land) * (1 - clouds) * day)[..., None] * 0.6
     citytex = 0.5 * fbm(tw, tw // 2, rng, base=40, octaves=3) + 0.5 * fbm(tw, tw // 2, rng, base=220, octaves=2)
     coastal = np.exp(-((hh - 0.56) / 0.04) ** 2) + 0.5 * smooth(0.55, 0.65, hh)
-    big = R > w                                                   # close orbit: denser, finer lights
     lo_t = 0.52 if big else 0.56
-    lights = land * smooth(lo_t, lo_t + 0.14, citytex[tj, ti]) ** 2 * (0.35 + coastal) * (1.1 if big else 0.9)
+    lights = np.zeros((h, w), np.float32)
     lights += np.exp(-r2 * R**2 / 64) * 2.0                       # our city, a bright point under the camera
     lights *= (1 - day) * (1 - 0.75 * clouds)
     lit += lin((1.0, 0.62, 0.28)) * lights[..., None] * 0.9
+    if True:                                    # city lights as speckles, never a stretched texture
+        cd = fbm(w, h, rng, 24, 4) if big else citytex[tj, ti]
+        dens = land * (1 - day) * smooth(0.45, 0.75, cd) * (0.35 + coastal) * (1 - 0.7 * clouds) * inside
+        n = int(w * h * 0.08)
+        xs, ys = rng.random(n) * w, rng.random(n) * h
+        keep = rng.random(n) < dens[ys.astype(int), xs.astype(int)]
+        k = int(keep.sum())
+        pts = np.zeros_like(lit)
+        splat(pts, xs[keep], ys[keep], np.tile(lin((1.0, 0.62, 0.28)), (k, 1)) * (rng.pareto(2.5, k)[:, None] * 0.25 + 0.06), sigma=0.7)
+        lit += pts + blur(pts, w * 0.006) * 1.5
     lit += shade * (1 - day[..., None]) * 0.035 * lin((0.6, 0.7, 1.0))   # moonlit night side
     lit *= (0.25 + 0.75 * nz[..., None] ** 0.35)
     img = np.where(inside[..., None], lit, img)
