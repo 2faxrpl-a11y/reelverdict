@@ -1,0 +1,30 @@
+# SCALE YouTube channel settings, used by: python -m scale_engine.youtube ...
+#
+# OAuth: reuse the SAME Google Cloud OAuth client as INVISIBLE 589 (same project,
+# same YouTube Data API v3 enablement and quota). Only the *token* is new: a
+# YouTube token is bound to one channel, so SCALE gets its own token file. The
+# first `auth` opens Google's consent screen once; pick the SCALE Brand Account there.
+
+client_secrets: ~/invisible589/client_secret.json   # path to INVISIBLE 589's client_secret*.json (or set SCALE_CLIENT_SECRETS)
+invisible_token: ~/invisible589/token.json          # optional: INVISIBLE's token, only read to report which scopes it lacks
+token_file: ~/.scale/youtube_token_scale.json       # SCALE's own token (kept outside the repo)
+expected_channel_title: SCALE
+
+# Tried in order by `handles`; claim the first free one at https://www.youtube.com/handle
+handle_candidates: [scale, scalezoom, scale.zoom, thescale, zoomscale, scaleuniverse, scale.universe, scaleshorts]
+
+channel:
+  country: US
+  default_language: en
+  keywords: [SCALE, zoom, universe, space, cosmos, "powers of ten", "observable universe", science, astronomy,
+             "scale of the universe", microscopic, "cinematic shorts", "zoom out", "zoom in"]
+  description: |
+    One continuous zoom. From the impossibly small to the impossibly huge, and back again.
+
+    Every SCALE episode is a single unbroken journey across the sizes of reality: from one human eye out past cities, planets and galaxies to the edge of everything we can ever see, or from your fingertip down through cells, molecules and atoms into the quantum foam. No cuts, no faces, just the zoom and a voice to guide you.
+
+    Some episodes pull back until Earth is a pixel. Some dive in until a grain of sand becomes a universe. All of them end in the same place: somewhere you never realized you were standing.
+
+    New zooms regularly. Subscribe and see how far it goes.
+
+    Created by Ajay Haynes.

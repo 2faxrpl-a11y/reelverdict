@@ -1,0 +1,96 @@
+# SCALE — series-wide settings. Every episode inherits these; an episode can
+# override any key under `output`, `look`, `hud`, `captions` or `audio`.
+
+series:
+  name: SCALE
+  tagline: "One zoom. Everything."
+  default_tags: [scale, powersoften, universe, space, science, shorts]
+
+output:
+  width: 1080
+  height: 1920
+  fps: 30
+  preview_scale: 0.5        # --preview renders at 540x960
+  preview_fps: 24
+  codec: auto               # auto = h264_videotoolbox on macOS, else libx264
+  crf: 19                   # libx264 quality (preview uses 26)
+  vt_bitrate: 18M           # videotoolbox bitrate
+  workers: auto             # parallel frame workers (auto = min(4, cpu count))
+
+art:
+  mode: code                # code = procedural art is the finished look; previz = placeholder until real stills
+  style: cinematic          # cinematic (scale_engine/art.py) | sketch (fast blocking art)
+
+look:
+  feather: 0.14             # soft edge of each inner layer, fraction of its width
+  vignette: 0.38
+  grain: 0.022
+  motion_blur_max_samples: 8
+  seam_match: true          # blend each inner image's edges into the image around it
+  magnify_fade: [2, 6]      # base layer fades to background between these blow-up factors
+  background: [0, 0, 0]
+  bloom: 0.35               # film finish, applied to every frame
+  halation: 0.18
+  aberration: 0.0015        # chromatic aberration, fraction of frame size
+  split_tone: 0.8           # teal shadows / amber highlights
+  dust: {enabled: true, count: 240, opacity: 0.45, rate: 0.55}
+
+hud:
+  enabled: true
+  y: 0.075                  # fraction of frame height
+  size: 0.050               # main readout, fraction of frame width
+  label_fade: 0.35          # layer label shows within this z-distance of a layer
+
+credit:
+  name: Ajay Haynes
+  watermark: {enabled: true, x: 0.055, y: 0.135, size: 0.026, opacity: 0.55}   # top-left, clear of the Shorts UI
+  intro: {enabled: true, start: 0.25, duration: 2.6, y: 0.22, text: "by Ajay Haynes"}  # overlays the hook, never delays it
+  end_card: {enabled: true, duration: 3.6, cta: "SUBSCRIBE FOR THE NEXT ZOOM"}
+
+captions:
+  enabled: true
+  max_words: 4
+  max_chars: 22
+  y: 0.75
+  size: 0.064
+
+audio:
+  sample_rate: 48000
+  target_lufs: -14
+  true_peak: -1.5
+  bed_gain_db: -19          # procedural drone / music bed
+  air_gain_db: -24          # motion-reactive noise layer
+  sfx_gain_db: -9           # whooshes / impacts
+  duck_db: -7               # how far the bed dips under narration
+
+youtube:
+  category_id: "28"          # Science & Technology
+  default_language: en
+  privacy: public            # public | unlisted | private
+  made_for_kids: false
+  synthetic_media: false     # set true if an episode shows realistic AI-generated people/events
+  playlist: "SCALE — Every Zoom"
+
+fonts:
+  # First file that exists wins. macOS paths first, then common Linux paths.
+  caption:
+    - /System/Library/Fonts/Supplemental/Futura.ttc
+    - /System/Library/Fonts/HelveticaNeue.ttc
+    - /System/Library/Fonts/Helvetica.ttc
+    - /usr/share/fonts/opentype/inter/Inter-SemiBold.otf
+    - /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+  hud:
+    - /System/Library/Fonts/SFNSMono.ttf
+    - /System/Library/Fonts/Menlo.ttc
+    - /usr/share/fonts/opentype/inter/Inter-Light.otf
+    - /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+
+tts:
+  default_provider: kokoro       # kokoro (free, offline neural) | elevenlabs (premium) | say (macOS) | silent
+  kokoro:
+    model_dir: ~/.scale/kokoro   # downloaded once (~120 MB) from GitHub, then fully offline
+    model_file: kokoro-v1.0.int8.onnx
+  elevenlabs:
+    api_key_env: ELEVENLABS_API_KEY
+    model_id: eleven_multilingual_v2
+    output_format: mp3_44100_192
